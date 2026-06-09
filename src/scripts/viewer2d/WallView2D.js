@@ -539,6 +539,12 @@ export class WallView2D extends BaseFloorplanViewElement2D {
         this.__wall.removeEventListener(EVENT_UPDATED, this.__wallUpdatedEvent);
         this.__wall.removeEventListener(EVENT_DELETED, this.__wallDeletedEvent);
         this.__info.remove();
+        // The Edge2D children extend BaseFloorplanViewElement2D, whose KeyboardListener2D
+        // registers global window keydown/keyup listeners. Without running their remove(),
+        // window keeps each child alive and, via .parent, this whole WallView2D — the main
+        // per-reload leak. Tear them down explicitly (mirrors how their keyboards are wired).
+        if (this.__backEdge) { this.__backEdge.remove(); }
+        if (this.__frontEdge) { this.__frontEdge.remove(); }
         super.remove();
     }
 
