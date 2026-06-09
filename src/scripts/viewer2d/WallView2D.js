@@ -28,11 +28,21 @@ export class WallDimensions2D extends Graphics {
         this.__measurementUpdateEvent = this.__measurementUpdate.bind(this);
         this.addChild(this.__textfield);
         this.update();
-        Configuration.getInstance().addEventListener(EVENT_CHANGED, this.__measurementUpdateEvent.bind(this));
+        // Subscribe with the STORED ref (not a fresh .bind) so it can be removed in remove().
+        // A re-bound closure here would be unremovable and leak this view via the Configuration
+        // singleton on every floorplan reload (mirror of the correct pattern in RoomView2D).
+        Configuration.getInstance().addEventListener(EVENT_CHANGED, this.__measurementUpdateEvent);
     }
 
     __measurementUpdate(evt){
         this.update();
+    }
+
+    remove() {
+        Configuration.getInstance().removeEventListener(EVENT_CHANGED, this.__measurementUpdateEvent);
+        if (this.parent) {
+            this.parent.removeChild(this);
+        }
     }
 
     __getPolygon(start, radius, sides, rotation = 0.0) {
@@ -519,10 +529,16 @@ export class WallView2D extends BaseFloorplanViewElement2D {
     }
 
     remove() {
+        // Symmetric teardown with the constructor's subscriptions (L335-339). The two
+        // EVENT_NEW_ITEM/EVENT_ITEM_REMOVED listeners were previously left attached, keeping
+        // this view alive via the wall. And __info (WallDimensions2D) must run its own remove()
+        // to detach from the Configuration singleton — removeChild alone leaves that anchor.
+        this.__wall.removeEventListener(EVENT_NEW_ITEM, this.__wallUpdatedEvent);
+        this.__wall.removeEventListener(EVENT_ITEM_REMOVED, this.__wallUpdatedEvent);
         this.__wall.removeEventListener(EVENT_MOVED, this.__wallUpdatedEvent);
         this.__wall.removeEventListener(EVENT_UPDATED, this.__wallUpdatedEvent);
         this.__wall.removeEventListener(EVENT_DELETED, this.__wallDeletedEvent);
-        this.removeChild(this.__info);
+        this.__info.remove();
         super.remove();
     }
 
